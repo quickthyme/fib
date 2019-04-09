@@ -2,37 +2,73 @@ import XCTest
 import class Foundation.Bundle
 
 final class fibTests: XCTestCase {
-    func testExample() throws {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct
-        // results.
 
-        // Some of the APIs that we use below are available in macOS 10.13 and above.
-        guard #available(macOS 10.13, *) else {
-            return
-        }
+    static var allTests = [
+        ("testFiveIsFive", testFiveIsFive),
+        ("testNoArgIsZero", testNoArgIsZero),
+        ("testOneIsOne", testOneIsOne),
+        ("testTwoIsOne", testTwoIsOne),
+        ("testThreeIsTwo", testThreeIsTwo),
+        ("testFourIsThree", testFourIsThree),
+        ("testFiveIsFive", testFiveIsFive),
+        ("testSixIsEight", testSixIsEight),
+        ("test1024IsRidiculous", test1024IsRidiculous),
+    ]
 
-        let fooBinary = productsDirectory.appendingPathComponent("fib")
+    lazy var subjectUrl = productsDirectory.appendingPathComponent("fib")
 
-        let process = Process()
-        process.executableURL = fooBinary
+    var subject: Process!
+    var subjectStdOut: Pipe!
+    var subjectStdErr: Pipe!
 
-        let pipe = Pipe()
-        process.standardOutput = pipe
+    override func setUp() {
+        subject = Process()
+        subject.executableURL = subjectUrl
 
-        process.arguments = ["5"]
+        subjectStdOut = Pipe()
+        subject.standardOutput = subjectStdOut
 
-        try process.run()
-        process.waitUntilExit()
-
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: data, encoding: .utf8)
-
-        XCTAssertEqual(output, "5\n")
+        subjectStdErr = Pipe()
+        subject.standardError = subjectStdErr
     }
 
-    /// Returns path to the built products directory.
-    var productsDirectory: URL {
+    func testNoArgIsZero() throws {
+        try assertRun(inputArg: nil, shouldResult: "0")
+    }
+
+    func testZeroIsZero() throws {
+        try assertRun(inputArg: "0", shouldResult: "0")
+    }
+
+    func testOneIsOne() throws {
+        try assertRun(inputArg: "1", shouldResult: "1")
+    }
+
+    func testTwoIsOne() throws {
+        try assertRun(inputArg: "2", shouldResult: "1")
+    }
+
+    func testThreeIsTwo() throws {
+        try assertRun(inputArg: "3", shouldResult: "2")
+    }
+
+    func testFourIsThree() throws {
+        try assertRun(inputArg: "4", shouldResult: "3")
+    }
+
+    func testFiveIsFive() throws {
+        try assertRun(inputArg: "5", shouldResult: "5")
+    }
+
+    func testSixIsEight() throws {
+        try assertRun(inputArg: "6", shouldResult: "8")
+    }
+
+    func test1024IsRidiculous() throws {
+        try assertRun(inputArg: "1024", shouldResult: "4506699633677819813104383235728886049367860596218604830803023149600030645708721396248792609141030396244873266580345011219530209367425581019871067646094200262285202346655868899711089246778413354004103631553925405243")
+    }
+
+    private var productsDirectory: URL {
       #if os(macOS)
         for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
             return bundle.bundleURL.deletingLastPathComponent()
@@ -43,7 +79,23 @@ final class fibTests: XCTestCase {
       #endif
     }
 
-    static var allTests = [
-        ("testExample", testExample),
-    ]
+    private func readStdOut() -> String {
+        let data = subjectStdOut.fileHandleForReading.readDataToEndOfFile()
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+
+    private func readStdErr() -> String {
+        let data = subjectStdErr.fileHandleForReading.readDataToEndOfFile()
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+
+    private func assertRun(inputArg: String?, shouldResult: String) throws {
+        if let arg = inputArg { subject.arguments = [arg] }
+        try subject.run()
+        subject.waitUntilExit()
+        let output = readStdOut()
+        let error = readStdErr()
+        XCTAssertEqual(output, "\(shouldResult)\n")
+        XCTAssertTrue(error.isEmpty)
+    }
 }
